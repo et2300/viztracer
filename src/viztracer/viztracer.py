@@ -3,11 +3,12 @@
 
 import builtins
 import multiprocessing
-import objprint  # type: ignore
 import os
 import signal
 import sys
 from typing import Any, Callable, Dict, Optional, Sequence, Tuple, Union
+
+import objprint  # type: ignore
 
 from .report_builder import ReportBuilder
 from .tracer import _VizTracer
@@ -33,7 +34,6 @@ class VizTracer(_VizTracer):
                  log_sparse: bool = False,
                  log_async: bool = False,
                  log_audit: Optional[Sequence[str]] = None,
-                 vdb: bool = False,
                  pid_suffix: bool = False,
                  file_info: bool = True,
                  register_global: bool = True,
@@ -54,11 +54,10 @@ class VizTracer(_VizTracer):
             log_func_retval=log_func_retval,
             log_print=log_print,
             log_gc=log_gc,
-            vdb=vdb,
             log_func_args=log_func_args,
             log_async=log_async,
             trace_self=trace_self,
-            min_duration=min_duration
+            min_duration=min_duration,
         )
         self._tracer: Any
         self.verbose = verbose
@@ -95,7 +94,7 @@ class VizTracer(_VizTracer):
         if type(pid_suffix) is bool:
             self.__pid_suffix = pid_suffix
         else:
-            raise ValueError("pid_suffix needs to be a boolean, not {}".format(pid_suffix))
+            raise ValueError(f"pid_suffix needs to be a boolean, not {pid_suffix}")
 
     @property
     def init_kwargs(self) -> Dict:
@@ -115,19 +114,20 @@ class VizTracer(_VizTracer):
             "log_sparse": self.log_sparse,
             "log_async": self.log_async,
             "log_audit": self.log_audit,
-            "vdb": self.vdb,
             "pid_suffix": self.pid_suffix,
             "min_duration": self.min_duration,
             "dump_raw": self.dump_raw,
-            "minimize_memory": self.minimize_memory
+            "minimize_memory": self.minimize_memory,
         }
 
     def __enter__(self) -> "VizTracer":
-        self.start()
+        if not self.log_sparse:
+            self.start()
         return self
 
     def __exit__(self, type, value, trace) -> None:
-        self.stop()
+        if not self.log_sparse:
+            self.stop()
         self.save()
         self.terminate()
 
@@ -163,6 +163,12 @@ class VizTracer(_VizTracer):
     def log_event(self, event_name: str) -> VizEvent:
         call_frame = sys._getframe(1)
         return VizEvent(self, event_name, call_frame.f_code.co_filename, call_frame.f_lineno)
+
+    def shield_ignore(self, func, *args, **kwargs):
+        prev_ignore_stack = self.setignorestackcounter(0)
+        res = func(*args, **kwargs)
+        self.setignorestackcounter(prev_ignore_stack)
+        return res
 
     def set_afterfork(self, callback: Callable, *args, **kwargs) -> None:
         self._afterfork_cb = callback

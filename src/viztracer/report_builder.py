@@ -5,15 +5,16 @@ try:
     import orjson  # type: ignore
 except ImportError:
     import json
+
 import gzip
 import os
 import re
-from string import Template
 import sys
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union, TextIO
+from string import Template
+from typing import Any, Dict, List, Optional, Sequence, TextIO, Tuple, Union
 
-from .util import color_print, same_line_print
 from . import __version__
+from .util import color_print, same_line_print
 
 
 def get_json(data: Union[Dict, str]) -> Dict[str, Any]:
@@ -208,4 +209,7 @@ class ReportBuilder:
                 elif msg_type == "view_command":
                     report_abspath = os.path.abspath(msg_args["output_file"])
                     print("Use the following command to open the report:")
-                    color_print("OKGREEN", "vizviewer {}".format(report_abspath))
+                    if " " in report_abspath:
+                        color_print("OKGREEN", f"vizviewer \"{report_abspath}\"")
+                    else:
+                        color_print("OKGREEN", f"vizviewer {report_abspath}")

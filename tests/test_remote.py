@@ -2,19 +2,20 @@
 # For details: https://github.com/gaogaotiantian/viztracer/blob/master/NOTICE.txt
 
 
-from viztracer import VizTracer
-from viztracer.attach_process.add_code_to_python_process import run_python_code  # type: ignore
-from viztracer.util import pid_exists
 import base64
 import json
 import os
 import re
 import signal
+import subprocess
 import sys
+import textwrap
 import time
 import unittest
-import textwrap
-import subprocess
+
+from viztracer import VizTracer
+from viztracer.attach_process.add_code_to_python_process import run_python_code  # type: ignore
+from viztracer.util import pid_exists
 
 from .cmdline_tmpl import CmdlineTmpl
 from .util import cmd_with_coverage
@@ -59,7 +60,7 @@ class TestRemote(CmdlineTmpl):
             while True:
                 time.sleep(0.5)
         """)
-        output_file = os.path.abspath(f"./remote_{int(time.time()*1000)}.json")
+        output_file = os.path.abspath(f"./remote_{int(time.time() * 1000)}.json")
         attach_cmd = cmd_with_coverage(["viztracer", "-o", output_file, "--attach"])
 
         self.attach_check(file_to_attach, attach_cmd, output_file)
@@ -148,7 +149,7 @@ class TestRemote(CmdlineTmpl):
             while True:
                 time.sleep(0.5)
         """)
-        output_file = os.path.abspath(f"remote_{int(time.time()*1000)}.json")
+        output_file = os.path.abspath(f"remote_{int(time.time() * 1000)}.json")
         uninstall_cmd = cmd_with_coverage(["viztracer", "-o", output_file, "--uninstall"])
         attach_cmd = cmd_with_coverage(["viztracer", "-o", output_file, "--attach"])
 

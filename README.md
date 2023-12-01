@@ -1,6 +1,6 @@
 # VizTracer
 
-[![build](https://github.com/gaogaotiantian/viztracer/workflows/build/badge.svg)](https://github.com/gaogaotiantian/viztracer/actions?query=workflow%3Abuild)  [![flake8](https://github.com/gaogaotiantian/viztracer/workflows/lint/badge.svg)](https://github.com/gaogaotiantian/viztracer/actions?query=workflow%3ALint)  [![readthedocs](https://img.shields.io/readthedocs/viztracer)](https://viztracer.readthedocs.io/en/stable/)  [![coverage](https://img.shields.io/codecov/c/github/gaogaotiantian/viztracer)](https://codecov.io/gh/gaogaotiantian/viztracer)  [![pypi](https://img.shields.io/pypi/v/viztracer.svg)](https://pypi.org/project/viztracer/)  [![support-version](https://img.shields.io/pypi/pyversions/viztracer)](https://img.shields.io/pypi/pyversions/viztracer)  [![license](https://img.shields.io/github/license/gaogaotiantian/viztracer)](https://github.com/gaogaotiantian/viztracer/blob/master/LICENSE)  [![commit](https://img.shields.io/github/last-commit/gaogaotiantian/viztracer)](https://github.com/gaogaotiantian/viztracer/commits/master)  [![twitter](https://img.shields.io/twitter/follow/viztracer?label=viztracer&style=flat&logo=twitter)](https://twitter.com/viztracer)
+[![build](https://github.com/gaogaotiantian/viztracer/workflows/build/badge.svg)](https://github.com/gaogaotiantian/viztracer/actions?query=workflow%3Abuild)  [![flake8](https://github.com/gaogaotiantian/viztracer/workflows/lint/badge.svg)](https://github.com/gaogaotiantian/viztracer/actions?query=workflow%3ALint)  [![readthedocs](https://img.shields.io/readthedocs/viztracer)](https://viztracer.readthedocs.io/en/stable/)  [![coverage](https://img.shields.io/codecov/c/github/gaogaotiantian/viztracer)](https://codecov.io/gh/gaogaotiantian/viztracer)  [![pypi](https://img.shields.io/pypi/v/viztracer.svg)](https://pypi.org/project/viztracer/)  [![support-version](https://img.shields.io/pypi/pyversions/viztracer)](https://img.shields.io/pypi/pyversions/viztracer)  [![license](https://img.shields.io/github/license/gaogaotiantian/viztracer)](https://github.com/gaogaotiantian/viztracer/blob/master/LICENSE)  [![commit](https://img.shields.io/github/last-commit/gaogaotiantian/viztracer)](https://github.com/gaogaotiantian/viztracer/commits/master)  [![sponsor](https://img.shields.io/badge/%E2%9D%A4-Sponsor%20me-%23c96198?style=flat&logo=GitHub)](https://github.com/sponsors/gaogaotiantian)
 
 VizTracer is a low-overhead logging/debugging/profiling tool that can trace and visualize your python code execution.
 
@@ -39,7 +39,7 @@ python3 my_script.py arg1 arg2
 
 You can simply use VizTracer by
 
-```
+```sh
 viztracer my_script.py arg1 arg2
 ```
 
@@ -104,7 +104,7 @@ Or add <code>--open</code> to open the reports right after tracing
 </summary>
 
 ```sh
-viztracer --open my_scripy.py arg1 arg2
+viztracer --open my_script.py arg1 arg2
 viztracer -o result.html --open my_script.py arg1 arg2
 ```
 
@@ -116,11 +116,11 @@ viztracer -o result.html --open my_script.py arg1 arg2
 modules and console scripts(like <code>flask</code>) are supported as well
 </summary>
 
-```
+```sh
 viztracer -m your_module
 ```
 
-```
+```sh
 viztracer flask run
 ```
 
@@ -248,17 +248,6 @@ Refer to [remote attach docs](https://viztracer.readthedocs.io/en/stable/remote_
 
 VizTracer needs to dump the internal data to json format. It is recommended for the users to install ```orjson```, which is much faster than the builtin ```json``` library. VizTracer will try to import ```orjson``` and fall back to the builtin ```json``` library if ```orjson``` does not exist.
 
-## Virtual Debug
-
-You can virtually debug your program with you saved json report. The interface is very similar to ```pdb```. Even better, you can **go back in time**
-because VizTracer has all the info recorded for you.
-
-```sh
-vdb <your_json_report>
-```
-
-Refer to the [docs](https://viztracer.readthedocs.io/en/stable/virtual_debug.html) for detailed commands
-
 ## Performance
 
 VizTracer will introduce 2x to 3x overhead in the worst case. The overhead is much better if there are less function calls or if filters are applied correctly.
@@ -306,6 +295,6 @@ Please send bug reports and feature requests through [github issue tracker](http
 
 ## License
 
-Copyright Tian Gao, 2020.
+Copyright 2020-2023 Tian Gao.
 
 Distributed under the terms of the  [Apache 2.0 license](https://github.com/gaogaotiantian/viztracer/blob/master/LICENSE).

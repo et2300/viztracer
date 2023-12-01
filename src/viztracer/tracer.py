@@ -3,10 +3,11 @@
 
 import builtins
 import gc
-from io import StringIO
 import os
 import sys
+from io import StringIO
 from typing import Any, Dict, Optional, Sequence, Union
+
 import viztracer.snaptrace as snaptrace  # type: ignore
 
 from . import __version__
@@ -27,8 +28,7 @@ class _VizTracer:
             log_gc: bool = False,
             log_async: bool = False,
             trace_self: bool = False,
-            min_duration: float = 0,
-            vdb: bool = False) -> None:
+            min_duration: float = 0) -> None:
         self.initialized = False
         self.enable = False
         self.parsed = False
@@ -46,7 +46,6 @@ class _VizTracer:
         self.log_func_args = log_func_args
         self.log_async = log_async
         self.min_duration = min_duration
-        self.vdb = vdb
         self.log_print = log_print
         self.log_gc = log_gc
         self.trace_self = trace_self
@@ -65,11 +64,11 @@ class _VizTracer:
             try:
                 self.__max_stack_depth = int(max_stack_depth)
             except ValueError:
-                raise ValueError("Error when trying to convert max_stack_depth {} to integer.".format(max_stack_depth))
+                raise ValueError(f"Error when trying to convert max_stack_depth {max_stack_depth} to integer.")
         elif isinstance(max_stack_depth, int):
             self.__max_stack_depth = max_stack_depth
         else:
-            raise ValueError("Error when trying to convert max_stack_depth {} to integer.".format(max_stack_depth))
+            raise ValueError(f"Error when trying to convert max_stack_depth {max_stack_depth} to integer.")
         self.config()
 
     @property
@@ -115,7 +114,7 @@ class _VizTracer:
         if isinstance(ignore_c_function, bool):
             self.__ignore_c_function = ignore_c_function
         else:
-            raise ValueError("ignore_c_function needs to be True or False, not {}".format(ignore_c_function))
+            raise ValueError(f"ignore_c_function needs to be True or False, not {ignore_c_function}")
         self.config()
 
     @property
@@ -127,7 +126,7 @@ class _VizTracer:
         if isinstance(ignore_frozen, bool):
             self.__ignore_frozen = ignore_frozen
         else:
-            raise ValueError("ignore_frozen needs to be True or False, not {}".format(ignore_frozen))
+            raise ValueError(f"ignore_frozen needs to be True or False, not {ignore_frozen}")
         self.config()
 
     @property
@@ -139,7 +138,7 @@ class _VizTracer:
         if isinstance(log_func_retval, bool):
             self.__log_func_retval = log_func_retval
         else:
-            raise ValueError("log_func_retval needs to be True or False, not {}".format(log_func_retval))
+            raise ValueError(f"log_func_retval needs to be True or False, not {log_func_retval}")
         self.config()
 
     @property
@@ -151,7 +150,7 @@ class _VizTracer:
         if isinstance(log_async, bool):
             self.__log_async = log_async
         else:
-            raise ValueError("log_async needs to be True or False, not {}".format(log_async))
+            raise ValueError(f"log_async needs to be True or False, not {log_async}")
         self.config()
 
     @property
@@ -163,7 +162,7 @@ class _VizTracer:
         if isinstance(log_print, bool):
             self.__log_print = log_print
         else:
-            raise ValueError("log_print needs to be True or False, not {}".format(log_print))
+            raise ValueError(f"log_print needs to be True or False, not {log_print}")
 
     @property
     def log_func_args(self) -> bool:
@@ -174,7 +173,7 @@ class _VizTracer:
         if isinstance(log_func_args, bool):
             self.__log_func_args = log_func_args
         else:
-            raise ValueError("log_func_args needs to be True or False, not {}".format(log_func_args))
+            raise ValueError(f"log_func_args needs to be True or False, not {log_func_args}")
         self.config()
 
     @property
@@ -190,19 +189,7 @@ class _VizTracer:
             elif self.add_garbage_collection in gc.callbacks:
                 gc.callbacks.remove(self.add_garbage_collection)
         else:
-            raise ValueError("log_gc needs to be True or False, not {}".format(log_gc))
-
-    @property
-    def vdb(self) -> bool:
-        return self.__vdb
-
-    @vdb.setter
-    def vdb(self, vdb: bool) -> None:
-        if isinstance(vdb, bool):
-            self.__vdb = vdb
-        else:
-            raise ValueError("vdb needs to be True or False, not {}".format(vdb))
-        self.config()
+            raise ValueError(f"log_gc needs to be True or False, not {log_gc}")
 
     @property
     def verbose(self) -> int:
@@ -214,11 +201,11 @@ class _VizTracer:
             try:
                 self.__verbose = int(verbose)
             except ValueError:
-                raise ValueError("Verbose needs to be an integer, not {}".format(verbose))
+                raise ValueError(f"Verbose needs to be an integer, not {verbose}")
         elif isinstance(verbose, int):
             self.__verbose = verbose
         else:
-            raise ValueError("Verbose needs to be an integer, not {}".format(verbose))
+            raise ValueError(f"Verbose needs to be an integer, not {verbose}")
         self.config()
 
     @property
@@ -230,7 +217,7 @@ class _VizTracer:
         if isinstance(min_duration, int) or isinstance(min_duration, float):
             self.__min_duration = float(min_duration)
         else:
-            raise ValueError("duration needs to be a float, not {}".format(min_duration))
+            raise ValueError(f"duration needs to be a float, not {min_duration}")
         self.config()
 
     def config(self) -> None:
@@ -246,11 +233,10 @@ class _VizTracer:
             "ignore_c_function": self.ignore_c_function,
             "ignore_frozen": self.ignore_frozen,
             "log_func_retval": self.log_func_retval,
-            "vdb": self.vdb,
             "log_func_args": self.log_func_args,
             "log_async": self.log_async,
             "trace_self": self.trace_self,
-            "min_duration": self.min_duration
+            "min_duration": self.min_duration,
         }
 
         self._tracer.config(**cfg)
@@ -291,6 +277,10 @@ class _VizTracer:
     def getts(self) -> float:
         return self._tracer.getts()
 
+    def setignorestackcounter(self, value) -> int:
+        # +2 and -2 to compensate for two calls: the current one and the call in the next line
+        return self._tracer.setignorestackcounter(value + 2) - 2
+
     def add_instant(self, name: str, args: Any = None, scope: str = "g") -> None:
         if self.enable:
             if scope not in ["g", "p", "t"]:
@@ -306,9 +296,9 @@ class _VizTracer:
                 if isinstance(var, (int, float)):
                     self.add_counter(name, {name: var})
                 else:
-                    raise ValueError("{}({}) is not a number".format(name, var))
+                    raise ValueError(f"{name}({var}) is not a number")
             else:
-                raise ValueError("{} is not supported".format(event))
+                raise ValueError(f"{event} is not supported")
 
     def add_counter(self, name: str, args: Dict[str, Any]) -> None:
         if self.enable:
@@ -331,7 +321,7 @@ class _VizTracer:
                 args = {
                     "collecting": 1,
                     "collected": 0,
-                    "uncollectable": 0
+                    "uncollectable": 0,
                 }
                 self.add_counter("garbage collection", args)
                 self.gc_start_args = args
@@ -342,11 +332,11 @@ class _VizTracer:
                 self.add_counter("garbage collection", {
                     "collecting": 0,
                     "collected": 0,
-                    "uncollectable": 0
+                    "uncollectable": 0,
                 })
 
     def add_func_exec(self, name: str, val: Any, lineno: int) -> None:
-        exec_line = "({}) {} = {}".format(lineno, name, val)
+        exec_line = f"({lineno}) {name} = {val}"
         curr_args = self._tracer.getfunctionarg()
         if not curr_args:
             self._tracer.addfunctionarg("exec_steps", [exec_line])
@@ -369,8 +359,8 @@ class _VizTracer:
                 "traceEvents": self._tracer.load(),
                 "viztracer_metadata": {
                     "version": __version__,
-                    "overflow": False
-                }
+                    "overflow": False,
+                },
             }
             metadata_count = 0
             for d in self.data["traceEvents"]:

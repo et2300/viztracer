@@ -18,14 +18,15 @@ import time
 import types
 from typing import Any, Dict, List, Optional, Tuple
 
+from viztracer.vcompressor import VCompressor
+
 from . import __version__
 from .attach_process.add_code_to_python_process import run_python_code  # type: ignore
 from .code_monkey import CodeMonkey
 from .patch import install_all_hooks
 from .report_builder import ReportBuilder
-from .util import time_str_to_us, color_print, same_line_print, pid_exists
+from .util import color_print, pid_exists, same_line_print, time_str_to_us
 from .viztracer import VizTracer
-
 
 # For all the procedures in VizUI, return a tuple as the result
 # The first element bool indicates whether the procedure succeeds
@@ -125,14 +126,16 @@ class VizUI:
                             help="Process VizTracer specific comments")
         parser.add_argument("--minimize_memory", action="store_true", default=False,
                             help="Use json.dump to dump chunks to file to save memory")
-        parser.add_argument("--vdb", action="store_true", default=False,
-                            help="Instrument for vdb, will increase the overhead")
         parser.add_argument("--pid_suffix", action="store_true", default=False,
                             help=("append pid to file name. "
                                   "This should be used when you try to trace multi process programs. "
                                   "Will by default generate json files"))
         parser.add_argument("--module", "-m", nargs="?", default=None,
                             help="run module with VizTracer")
+        parser.add_argument("--compress", nargs="?", default=None,
+                            help="Compress a json report to a compact cvf format")
+        parser.add_argument("--decompress", nargs="?", default=None,
+                            help="Decompress a compressed cvf file to a json format")
         parser.add_argument("--combine", nargs="*", default=[],
                             help=("combine all json reports to a single report. "
                                   "Specify all the json reports you want to combine"))
@@ -250,7 +253,6 @@ class VizUI:
             "log_sparse": options.log_sparse,
             "log_async": options.log_async,
             "log_audit": options.log_audit,
-            "vdb": options.vdb,
             "pid_suffix": True,
             "file_info": False,
             "register_global": True,
@@ -259,7 +261,7 @@ class VizUI:
             "min_duration": min_duration,
             "sanitize_function_name": options.sanitize_function_name,
             "dump_raw": True,
-            "minimize_memory": options.minimize_memory
+            "minimize_memory": options.minimize_memory,
         }
 
         return True, None
@@ -299,6 +301,10 @@ class VizUI:
             return self.run_module()
         elif self.command:
             return self.run_command()
+        elif self.options.compress:
+            return self.run_compress()
+        elif self.options.decompress:
+            return self.run_decompress()
         elif self.options.combine:
             return self.run_combine(files=self.options.combine)
         elif self.options.align_combine:
@@ -360,7 +366,7 @@ class VizUI:
         code = "run_module(modname, run_name='__main__', alter_sys=True)"
         global_dict = {
             "run_module": runpy.run_module,
-            "modname": self.options.module
+            "modname": self.options.module,
         }
         sys.argv = [self.options.module] + self.command[:]
         sys.path.insert(0, os.getcwd())
@@ -383,7 +389,7 @@ class VizUI:
         file_name = command[0]
         search_result = self.search_file(file_name)
         if not search_result:
-            return False, "No such file as {}".format(file_name)
+            return False, f"No such file as {file_name}"
         file_name = search_result
         with open(file_name, "rb") as f:
             code_string = f.read()
@@ -415,6 +421,46 @@ class VizUI:
         sys.path.insert(0, os.path.dirname(file_name))
         sys.argv = command[:]
         return self.run_code(code, main_mod.__dict__)
+
+    def run_compress(self):
+        file_to_compress = self.options.compress
+        if not file_to_compress or not os.path.exists(file_to_compress):
+            return False, f"Unable to find file {file_to_compress}"
+
+        if not file_to_compress.endswith(".json"):
+            return False, "Only support compressing json report"
+
+        if not self.options.output_file:
+            output_file = "result.cvf"
+        else:
+            output_file = self.options.output_file
+
+        compressor = VCompressor()
+
+        with open(file_to_compress) as f:
+            data = json.load(f)
+            compressor.compress(data, output_file)
+
+        return True, None
+
+    def run_decompress(self):
+        file_to_decompress = self.options.decompress
+        if not file_to_decompress or not os.path.exists(file_to_decompress):
+            return False, f"Unable to find file {file_to_decompress}"
+
+        if not self.options.output_file:
+            output_file = "result.json"
+        else:
+            output_file = self.options.output_file
+
+        compressor = VCompressor()
+
+        data = compressor.decompress(file_to_decompress)
+
+        with open(output_file, "w") as f:
+            json.dump(data, f)
+
+        return True, None
 
     def run_combine(self, files: List[str], align: bool = False) -> VizProcedureResult:
         options = self.options
@@ -451,7 +497,7 @@ class VizUI:
             "file_info": True,
             "register_global": True,
             "dump_raw": False,
-            "verbose": 1 if self.verbose != 0 else 0
+            "verbose": 1 if self.verbose != 0 else 0,
         })
         b64s = base64.urlsafe_b64encode(json.dumps(self.init_kwargs).encode("ascii")).decode("ascii")
         start_code = f"import viztracer.attach; viztracer.attach.start_attach(\\\"{b64s}\\\")"
@@ -467,7 +513,7 @@ class VizUI:
             return False, f"Failed to inject code [err {retcode}]"
 
         print("Use the following command to open the report:")
-        color_print("OKGREEN", "vizviewer {}".format(self.init_kwargs["output_file"]))
+        color_print("OKGREEN", f"vizviewer {self.init_kwargs['output_file']}")
 
         return True, None
 
@@ -524,6 +570,12 @@ class VizUI:
         # This function will only be called from main process
         options = self.options
         ofile = self.ofile
+        if options.pid_suffix:
+            prefix, suffix = os.path.splitext(self.ofile)
+            prefix_pid = f"{prefix}_{os.getpid()}"
+            ofile = prefix_pid + suffix
+        else:
+            ofile = self.ofile
 
         self.wait_children_finish()
         builder = ReportBuilder(

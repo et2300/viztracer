@@ -3,12 +3,13 @@
 
 import configparser
 import importlib.util
-from contextlib import contextmanager
 import os
+import re
 import signal
 import sys
-import re
+from contextlib import contextmanager
 from unittest.case import skipIf
+
 from .cmdline_tmpl import CmdlineTmpl
 from .package_env import package_matrix
 
@@ -204,6 +205,11 @@ import jaxlib.mlir.dialects.chlo
 import jaxlib.mlir.dialects.mhlo
 """
 
+file_pid_suffix = """
+import os
+print(os.getpid())
+"""
+
 
 class TestCommandLineBasic(CmdlineTmpl):
     def test_no_file(self):
@@ -244,6 +250,8 @@ class TestCommandLineBasic(CmdlineTmpl):
                       expected_output_file="result.html")
         self.template(["python", "-m", "viztracer", "--output_file", "result.json", "cmdline_test.py"],
                       expected_output_file="result.json")
+        self.template(["python", "-m", "viztracer", "--output_file", "result with space.json", "cmdline_test.py"],
+                      expected_output_file="result with space.json")
         self.template(["python", "-m", "viztracer", "--output_file", "result.json.gz", "cmdline_test.py"],
                       expected_output_file="result.json.gz")
         self.template(["viztracer", "-o", "result.html", "cmdline_test.py"], expected_output_file="result.html")
@@ -285,9 +293,6 @@ class TestCommandLineBasic(CmdlineTmpl):
 
     def test_log_func_retval(self):
         self.template(["python", "-m", "viztracer", "--log_func_retval", "cmdline_test.py"], script=file_c_function)
-
-    def test_vdb(self):
-        self.template(["python", "-m", "viztracer", "--vdb", "cmdline_test.py"])
 
     def test_log_func_args(self):
         self.template(["python", "-m", "viztracer", "--log_func_args", "cmdline_test.py"])
@@ -333,13 +338,22 @@ class TestCommandLineBasic(CmdlineTmpl):
         self.template(["python", "-m", "viztracer", "--min_duration", "0.0.3s", "cmdline_test.py"], success=False)
 
     def test_pid_suffix(self):
-        self.template(["python", "-m", "viztracer", "--pid_suffix", "--output_dir", "./suffix_tmp", "cmdline_test.py"],
-                      expected_output_file="./suffix_tmp")
+        result = self.template(
+            ["python", "-m", "viztracer", "--pid_suffix", "--output_dir", "./suffix_tmp", "cmdline_test.py"],
+            expected_output_file="./suffix_tmp", script=file_pid_suffix, cleanup=False
+        )
+        pid = result.stdout.decode("utf-8").split()[0]
+        self.assertFileExists(os.path.join("./suffix_tmp", f"result_{pid}.json"))
+        self.cleanup(output_file="./suffix_tmp")
 
-    def test_path_finding(self):
-        if sys.platform in ["linux", "linux2", "darwin"]:
-            # path finding only works on Unix
-            self.template(["viztracer", "vdb"], success=False)
+    def test_pid_suffix_and_output(self):
+        result = self.template(
+            ["python", "-m", "viztracer", "--pid_suffix", "--output_dir", "./suffix_tmp", "-o", "test.json",
+             "cmdline_test.py"], expected_output_file="./suffix_tmp", script=file_pid_suffix, cleanup=False
+        )
+        pid = result.stdout.decode("utf-8").split()[0]
+        self.assertFileExists(os.path.join("./suffix_tmp", f"test_{pid}.json"))
+        self.cleanup(output_file="./suffix_tmp")
 
     def test_module(self):
         self.template(["viztracer", "-m", "numbers"])
@@ -384,7 +398,6 @@ class TestCommandLineBasic(CmdlineTmpl):
                       expected_output_file="result.json",
                       expected_entries=7)
 
-    @skipIf(sys.version_info < (3, 8), "sys.addaudithook does not exist on 3.8-")
     def test_log_audit(self):
         def check_func(include_names, exclude_names=[]):
             def inner(data):

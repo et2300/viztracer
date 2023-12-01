@@ -2,7 +2,6 @@
 # For details: https://github.com/gaogaotiantian/viztracer/blob/master/NOTICE.txt
 
 
-from .cmdline_tmpl import CmdlineTmpl
 import os
 import re
 import shutil
@@ -11,6 +10,8 @@ import sys
 import tempfile
 import unittest
 from string import Template
+
+from .cmdline_tmpl import CmdlineTmpl
 
 
 file_spawn_tmpl = Template("""
@@ -63,6 +64,28 @@ def foo():
 """
 
 
+check_output = r"""
+import os
+import subprocess
+
+with open("check_output_echo.py", "w") as f:
+    f.write("import sys; print(sys.argv)")
+
+print(subprocess.check_output(["python", "--version"], text=True).strip())
+print(subprocess.check_output(["python", "-cprint(5)"]))
+print(subprocess.check_output(["python", "check_output_echo.py"], text=True))
+print(subprocess.check_output(["python", "-v", "--", "check_output_echo.py", "-a", "42"]))
+print(subprocess.check_output(["python", "-Es", "check_output_echo.py", "-v", "--my_arg=foo bar"], text=True))
+print(subprocess.check_output(["python", "-Esm", "check_output_echo", "-abc"]))
+print(subprocess.check_output(["python", "-c", r"import sys; sys.stdout.buffer.write(b'\0\1\2\3\4')"]))
+print(subprocess.check_output(["python", "-", "foo"], input=b"import sys; print(sys.argv)"))
+print(subprocess.check_output(["python"], input=b"import sys; print(sys.argv)"))
+print(subprocess.check_output(["python", "-im", "check_output_echo", "asdf"], input=b"import sys; print(sys.argv)"))
+
+os.remove("check_output_echo.py")
+"""
+
+
 file_after_patch_check = """
 import multiprocessing.spawn
 import subprocess
@@ -98,6 +121,15 @@ class TestPatchSpawn(CmdlineTmpl):
         self.assertEqual(len(files), 1)
         self.assertTrue(re.match(r"result_[0-9]*\.json", files[0]))
         shutil.rmtree(tmpdir)
+
+    def test_patch_args(self):
+        a = self.template(["python", "cmdline_test.py"],
+                          expected_output_file=None,
+                          script=check_output)
+        b = self.template(["viztracer", "--quiet", "cmdline_test.py"],
+                          expected_output_file="result.json",
+                          script=check_output)
+        self.assertEqual(a.stdout, b.stdout)
 
 
 class TestPatchSideEffect(CmdlineTmpl):

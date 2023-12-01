@@ -4,8 +4,10 @@
 import io
 import os
 import time
-from viztracer.tracer import _VizTracer
+
 from viztracer import VizTracer
+from viztracer.tracer import _VizTracer
+
 from .base_tmpl import BaseTmpl
 
 
@@ -193,23 +195,6 @@ class TestTracerFeature(BaseTmpl):
         events = [e for e in tracer.data["traceEvents"] if e["ph"] != "M"]
         self.assertTrue("args" in events[0]
                         and "return_value" in events[0]["args"])
-
-    def test_novdb(self):
-        tracer = _VizTracer(vdb=True)
-        tracer.start()
-        fib(5)
-        tracer.stop()
-        tracer.parse()
-        events = [e for e in tracer.data["traceEvents"] if e["ph"] != "M"]
-        self.assertTrue("caller_lineno" in events[0])
-
-        tracer = _VizTracer(vdb=False)
-        tracer.start()
-        fib(5)
-        tracer.stop()
-        tracer.parse()
-        events = [e for e in tracer.data["traceEvents"] if e["ph"] != "M"]
-        self.assertFalse("caller_lineno" in events[0])
 
     def test_log_func_args(self):
         tracer = _VizTracer(log_func_args=True)
