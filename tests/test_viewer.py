@@ -2,22 +2,24 @@
 # For details: https://github.com/gaogaotiantian/viztracer/blob/master/NOTICE.txt
 
 
-import shutil
-from .cmdline_tmpl import CmdlineTmpl
 import json
 import multiprocessing
 import os
 import re
+import shutil
 import signal
 import socket
 import subprocess
 import sys
-import time
 import tempfile
+import time
 import unittest.mock
 import urllib.request
-from viztracer.viewer import viewer_main
 import webbrowser
+
+from viztracer.viewer import viewer_main
+
+from .cmdline_tmpl import CmdlineTmpl
 
 
 class Viewer(unittest.TestCase):
@@ -119,7 +121,7 @@ class Viewer(unittest.TestCase):
         self.fail(f"Can't connect to 127.0.0.1:{port}")
 
     def url(self, offset: int = 0) -> str:
-        return f'http://127.0.0.1:{self.port+offset}'
+        return f'http://127.0.0.1:{self.port + offset}'
 
 
 class MockOpen(unittest.TestCase):
@@ -141,7 +143,9 @@ class MockOpen(unittest.TestCase):
             os.kill(self.int_pid, signal.SIGINT)
 
     def __call__(self, url):
-        self.p = multiprocessing.Process(target=self.get_and_check, args=(url, self.file_content))
+        # fork in a multi-threaded program could result in dead lock
+        ctx = multiprocessing.get_context("spawn")
+        self.p = ctx.Process(target=self.get_and_check, args=(url, self.file_content))
         self.p.start()
 
 
@@ -454,6 +458,11 @@ class TestViewer(CmdlineTmpl):
                     self.assertRegex(resp.url, "http://127.0.0.1:90[0-1][0-9]/")
         finally:
             shutil.rmtree(tmp_dir)
+
+    def test_exception(self):
+        test_data_dir = os.path.join(os.path.dirname(__file__), "data")
+        self.template(["vizviewer", "--port", "-3", os.path.join(test_data_dir, "fib.json")],
+                      success=False, expected_output_file=None, expected_stderr=".*Traceback.*")
 
     def test_invalid(self):
         self.template(["vizviewer", "do_not_exist.json"], success=False, expected_output_file=None)

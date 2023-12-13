@@ -4,11 +4,11 @@
 from __future__ import annotations
 
 import functools
-from multiprocessing import Process
 import os
 import re
 import sys
 import textwrap
+from multiprocessing import Process
 from typing import Any, Callable, Dict, List, Sequence, Union, no_type_check
 
 from .viztracer import VizTracer
@@ -50,15 +50,17 @@ def patch_subprocess(viz_args: list[str]) -> None:
                         py_args.append(f"-{cm_py_args}")
                     mode = [f"-{cm}"]
                     # -m mod | -mmod
-                    script = cm_arg or next(args_iter, None)
+                    mode.append(cm_arg or next(args_iter, None))
                 break
 
             # -pyopts
             py_args.append(arg)
 
-        if script is None:
-            return None
-        return [sys.executable, *py_args, "-m", "viztracer", "--quiet", *viz_args, *mode, script, *args_iter]
+        if script:
+            return [sys.executable, *py_args, "-m", "viztracer", "--quiet", *viz_args, "--", script, *args_iter]
+        elif mode and mode[-1] is not None:
+            return [sys.executable, *py_args, "-m", "viztracer", "--quiet", *viz_args, *mode, "--", *args_iter]
+        return None
 
     @functools.wraps(subprocess.Popen.__init__)
     def subprocess_init(self: subprocess.Popen[Any], args: Union[str, Sequence[Any], Any], **kwargs: Any) -> None:
@@ -99,17 +101,17 @@ def patch_multiprocessing(tracer: VizTracer, args: List[str]) -> None:
         if tracer._afterfork_cb:
             tracer._afterfork_cb(tracer, *tracer._afterfork_args, **tracer._afterfork_kwargs)
 
-    from multiprocessing.util import register_after_fork  # type: ignore
     import multiprocessing.spawn
+    from multiprocessing.util import register_after_fork  # type: ignore
 
     register_after_fork(tracer, func_after_fork)
 
     # For spawn process
     @functools.wraps(multiprocessing.spawn.get_command_line)
     def get_command_line(**kwds) -> List[str]:
-        '''
+        """
         Returns prefix of command line used for spawning a child process
-        '''
+        """
         if getattr(sys, 'frozen', False):  # pragma: no cover
             return ([sys.executable, '--multiprocessing-fork']
                     + ['%s=%r' % item for item in kwds.items()])
@@ -155,13 +157,13 @@ class SpawnProcess:
 
 
 def patch_spawned_process(viztracer_kwargs: Dict[str, Any], cmdline_args: List[str]):
-    from multiprocessing import reduction, process  # type: ignore
-    from multiprocessing.spawn import prepare
     import multiprocessing.spawn
+    from multiprocessing import process, reduction  # type: ignore
+    from multiprocessing.spawn import prepare
 
     @no_type_check
     @functools.wraps(multiprocessing.spawn._main)
-    def _main_3839(fd, parent_sentinel) -> Any:
+    def _main(fd, parent_sentinel) -> Any:
         with os.fdopen(fd, 'rb', closefd=True) as from_parent:
             process.current_process()._inheriting = True
             try:
@@ -174,25 +176,7 @@ def patch_spawned_process(viztracer_kwargs: Dict[str, Any], cmdline_args: List[s
                 del process.current_process()._inheriting
         return self._bootstrap(parent_sentinel)
 
-    @no_type_check
-    @functools.wraps(multiprocessing.spawn._main)
-    def _main_3637(fd) -> Any:
-        with os.fdopen(fd, 'rb', closefd=True) as from_parent:
-            process.current_process()._inheriting = True
-            try:
-                preparation_data = reduction.pickle.load(from_parent)
-                prepare(preparation_data)
-                self: Process = reduction.pickle.load(from_parent)
-                sp = SpawnProcess(viztracer_kwargs, self.run, self._target, self._args, self._kwargs, cmdline_args)
-                self.run = sp.run
-            finally:
-                del process.current_process()._inheriting
-        return self._bootstrap()
-
-    if sys.version_info >= (3, 8):
-        multiprocessing.spawn._main = _main_3839  # type: ignore
-    else:
-        multiprocessing.spawn._main = _main_3637  # type: ignore
+    multiprocessing.spawn._main = _main  # type: ignore
 
 
 def install_all_hooks(

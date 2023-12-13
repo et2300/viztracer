@@ -1,13 +1,13 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
 # For details: https://github.com/gaogaotiantian/viztracer/blob/master/NOTICE.txt
 
-import os
-import sys
 import multiprocessing
+import os
 import signal
+import sys
 import tempfile
 import unittest
-from unittest.case import skipIf
+
 from .cmdline_tmpl import CmdlineTmpl
 
 
@@ -67,7 +67,7 @@ if pid > 0:
     time.sleep(0.1)
     print("parent")
 else:
-    time.sleep(2.5)
+    time.sleep(4.5)
     print("child")
 """
 
@@ -291,7 +291,7 @@ class TestMultiprocessing(CmdlineTmpl):
             self.template(["viztracer", "-o", "result.json", "cmdline_test.py"],
                           expected_output_file="result.json", script=file_fork, check_func=check_func)
 
-    @unittest.skipIf(sys.version_info < (3, 8) or sys.platform not in ["linux", "linux2"], "Only works on Linux + py3.8+")
+    @unittest.skipIf(sys.platform not in ["linux", "linux2"], "Only works on Linux")
     def test_os_fork_term(self):
         def check_func_wrapper(process_num):
             def check_func(data):
@@ -307,7 +307,7 @@ class TestMultiprocessing(CmdlineTmpl):
         self.assertIn("Wait for child process", result.stdout.decode())
 
         result = self.template(["viztracer", "-o", "result.json", "cmdline_test.py"],
-                               send_sig=(signal.SIGINT, 2), expected_output_file="result.json", script=file_fork_wait,
+                               send_sig=(signal.SIGINT, 3.5), expected_output_file="result.json", script=file_fork_wait,
                                check_func=check_func_wrapper(1))
 
     def test_multiprosessing(self):
@@ -407,7 +407,6 @@ class TestMultiprocessing(CmdlineTmpl):
 
 
 class TestLoky(CmdlineTmpl):
-    @skipIf(sys.version_info < (3, 8), "fork + exec will make viztracer + loky deadlock")
     def test_loky_basic(self):
         def check_func(data):
             pids = set()

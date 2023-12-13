@@ -110,7 +110,24 @@ If you are using Jupyter, you can use viztracer cell magics.
     %%viztracer
     # Your code after
 
-A ``Show VizTracer Report`` button will appear after the cell and you can click it to view the results
+.. code-block:: python
+
+    # you can define arguments of VizTracer in magic
+    %%viztracer -p 8888
+    # Your code after
+
+A ``Show VizTracer Report`` button will appear after the cell and you can click it to view the results.
+
+Cell magic ``%%viztracer`` supports some of the command line arguments:
+
+* ``--port``
+* ``--output_file``
+* ``--max_stack_depth``
+* ``--ignore_c_function``
+* ``--ignore_frozen``
+* ``--log_func_args``
+* ``--log_print``
+* ``--log_sparse``
 
 Display Report
 --------------
@@ -240,20 +257,6 @@ this usage.
 .. code-block::
 
     viztracer --align_combine run1.json run2.json -o compare_report.json
-
-Debug Your Saved Report
------------------------
-
-VizTracer allows you to debug your json report just like pdb. You can understand how your program is executed by 
-interact with it. Even better, you can **go back in time** because you know what happened before. 
-
-**This feature will be removed from 0.16.0**
-
-.. code-block:: 
-
-    vdb <your_json_report>
-
-For detailed commands, please refer to :doc:`virtual_debug`
 
 Compress Your Report
 --------------------
